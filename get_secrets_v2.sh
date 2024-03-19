@@ -18,8 +18,6 @@ IFS=$'\n'
 for ENTRY in ${SECRET_VALUES}; do
   KEY=$(echo "${ENTRY}" | cut -d'=' -f1 | tr '[:upper:]' '[:lower:]' | gsed "s/${RANDOM_PET}_//" | gsed "s/${NAMESPACE}_//")
   VALUE=$(echo -n "${ENTRY}" | cut -d'=' -f2 | tr -d '\n')
-#   # Remove "random_pet" value from the key if present
-#   KEY=$(remove_ns_suffix "${KEY}")
 
   # Check if the key exists in Google Cloud Secret Manager
   EXISTING_VALUE=$(gcloud secrets versions access latest --secret=${NAMESPACE}-${KEY} --project=${PROJECT_ID} | tr -d '\n' || true) #2>/dev/null)
@@ -27,16 +25,15 @@ for ENTRY in ${SECRET_VALUES}; do
   # Compare existing value with the new value
   if [ "${EXISTING_VALUE}" != "${VALUE}" ]; then
     # If EXISTING_VALUE is null, create a new version
-    # NEWVALUE=$(echo "${VALUE}" | tr -d '\n')
     if [ -z "${EXISTING_VALUE}" ]; then
       # Create a new version of the secret in Google Cloud Secret Manager
-      echo -n "${VALUE}" | gcloud secrets versions add ${NAMESPACE}-${KEY}  --data-file=- --project=${PROJECT_ID}
+      echo -n "${VALUE}" | gcloud secrets versions add ${NAMESPACE}-${KEY}  --data-file=- --project=${PROJECT_ID} || true
     else
       # Disable all past versions of the secret
       gcloud secrets versions list ${NAMESPACE}-${KEY} --project=${PROJECT_ID} --filter="state=enabled" --format "value(name)" | xargs -I {} gcloud secrets versions disable {} --secret=${NAMESPACE}-${KEY} --project=${PROJECT_ID}
 
       # Create a new version of the secret in Google Cloud Secret Manager
-      echo -n "${VALUE}" | gcloud secrets versions add ${NAMESPACE}-${KEY}  --data-file=- --project=${PROJECT_ID}
+      echo -n "${VALUE}" | gcloud secrets versions add ${NAMESPACE}-${KEY}  --data-file=- --project=${PROJECT_ID} || true
     fi
     echo "Updated ${NAMESPACE}-${KEY} in Google Cloud Secret Manager"
   else
